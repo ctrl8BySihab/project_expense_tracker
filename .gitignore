@@ -1,3 +1,4 @@
+ref_templates/
 .venv/
 expense_tracker.db
 __pycache__/
