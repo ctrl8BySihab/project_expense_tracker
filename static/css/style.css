@@ -749,6 +749,136 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ------------------------------------------------------------------ */
+/* Insights (expenses page)                                            */
+/* ------------------------------------------------------------------ */
+
+.insights-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.insight-card {
+    background: var(--paper-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1.25rem 1.5rem;
+}
+
+.insight-title {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    color: var(--ink);
+    margin-bottom: 0.25rem;
+}
+
+.insight-subtitle {
+    font-size: 0.78rem;
+    color: var(--ink-muted);
+    margin-bottom: 1rem;
+}
+
+.category-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.category-chart-row {
+    display: grid;
+    grid-template-columns: 100px 1fr auto;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.category-chart-label {
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.category-chart-track {
+    height: 10px;
+    background: var(--border-soft);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.category-chart-bar {
+    height: 100%;
+    width: 0;
+    border-radius: 999px;
+    transition: width 0.8s ease;
+}
+
+.category-chart-value {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+}
+
+.trend-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.85rem;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    min-height: 160px;
+}
+
+.trend-chart-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 36px;
+    flex: 1 0 auto;
+}
+
+.trend-chart-value {
+    font-size: 0.7rem;
+    color: var(--ink-muted);
+    white-space: nowrap;
+}
+
+.trend-chart-track {
+    width: 100%;
+    max-width: 28px;
+    height: 100px;
+    display: flex;
+    align-items: flex-end;
+    background: var(--border-soft);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.trend-chart-bar {
+    width: 100%;
+    height: 0;
+    background: var(--accent-2);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    transition: height 0.8s ease;
+}
+
+.trend-chart-label {
+    font-size: 0.68rem;
+    color: var(--ink-muted);
+    white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .category-chart-bar,
+    .trend-chart-bar {
+        transition: none;
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /* Profile                                                             */
 /* ------------------------------------------------------------------ */
 
@@ -968,6 +1098,7 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 900px) {
     .hero { gap: 2.5rem; }
     .features-inner { grid-template-columns: 1fr; }
+    .insights-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 600px) {

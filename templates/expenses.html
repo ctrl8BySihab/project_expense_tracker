@@ -20,6 +20,43 @@
         {% endif %}
 
         {% if expenses %}
+        <div class="insights-grid">
+
+            <div class="insight-card reveal-on-scroll">
+                <h2 class="insight-title">Spending by Category</h2>
+                <div class="category-chart">
+                    {% for row in category_totals %}
+                    <div class="category-chart-row">
+                        <span class="category-chart-label">{{ row.label }}</span>
+                        <div class="category-chart-track">
+                            <div class="category-chart-bar"
+                                 data-target-width="{{ row.pct }}"
+                                 style="background: {{ row.color }};"></div>
+                        </div>
+                        <span class="category-chart-value">৳{{ "%.2f"|format(row.amount) }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="insight-card reveal-on-scroll">
+                <h2 class="insight-title">Spending Over Time</h2>
+                <p class="insight-subtitle">{{ "By month" if time_bucket_mode == "month" else "By day" }}</p>
+                <div class="trend-chart">
+                    {% for point in time_totals %}
+                    <div class="trend-chart-col">
+                        <span class="trend-chart-value">৳{{ "%.2f"|format(point.amount) }}</span>
+                        <div class="trend-chart-track">
+                            <div class="trend-chart-bar" data-target-height="{{ point.pct }}"></div>
+                        </div>
+                        <span class="trend-chart-label">{{ point.label }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+
         <div class="expenses-table-wrap">
             <table class="expenses-table">
                 <thead>
@@ -59,4 +96,37 @@
     </div>
 </section>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+    (function () {
+        var bars = document.querySelectorAll('.category-chart-bar, .trend-chart-bar');
+        if (!bars.length) return;
+
+        function applyTarget(el) {
+            if (el.classList.contains('category-chart-bar')) {
+                el.style.width = el.dataset.targetWidth + '%';
+            } else {
+                el.style.height = el.dataset.targetHeight + '%';
+            }
+        }
+
+        if (!('IntersectionObserver' in window)) {
+            bars.forEach(applyTarget);
+            return;
+        }
+
+        var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry, i) {
+                if (entry.isIntersecting) {
+                    setTimeout(function () { applyTarget(entry.target); }, i * 60);
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.15 });
+
+        bars.forEach(function (el) { observer.observe(el); });
+    })();
+</script>
 {% endblock %}

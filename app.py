@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import date, datetime
 from functools import wraps
 
 from flask import Flask, render_template, request, redirect, url_for, session
@@ -13,6 +14,18 @@ init_db()
 seed_db()
 
 CATEGORIES = ["Food", "Bills", "Travel", "Shopping", "Entertainment", "Health", "Other"]
+
+CATEGORY_COLORS = {
+    "Food": "#c4861c",
+    "Bills": "#7268c5",
+    "Travel": "#4a88d4",
+    "Shopping": "#d9534f",
+    "Entertainment": "#1a472a",
+    "Health": "#2f9e8f",
+    "Other": "#8a8f98",
+}
+TOP_CATEGORY_LIMIT = 6
+DAY_BUCKET_THRESHOLD_DAYS = 45
 
 
 def login_required(view):
@@ -29,6 +42,53 @@ def resolve_category(form):
     if category == "Other":
         return form.get("category_custom", "").strip()
     return category
+
+
+def build_category_totals(expenses):
+    sums = {}
+    for e in expenses:
+        sums[e["category"]] = sums.get(e["category"], 0.0) + e["amount"]
+
+    ranked = sorted(sums.items(), key=lambda kv: (-kv[1], kv[0]))
+    if len(ranked) > TOP_CATEGORY_LIMIT:
+        head = dict(ranked[:TOP_CATEGORY_LIMIT])
+        tail = ranked[TOP_CATEGORY_LIMIT:]
+        head["Other"] = head.get("Other", 0.0) + sum(v for _, v in tail)
+        ranked = sorted(head.items(), key=lambda kv: (-kv[1], kv[0]))
+
+    max_total = max(v for _, v in ranked)
+    return [
+        {
+            "label": label,
+            "amount": amount,
+            "pct": round(amount / max_total * 100),
+            "color": CATEGORY_COLORS.get(label, CATEGORY_COLORS["Other"]),
+        }
+        for label, amount in ranked
+    ]
+
+
+def build_time_totals(expenses):
+    dates = sorted({date.fromisoformat(e["expense_date"]) for e in expenses})
+    by_month = (dates[-1] - dates[0]).days >= DAY_BUCKET_THRESHOLD_DAYS
+
+    sums = {}
+    for e in expenses:
+        d = date.fromisoformat(e["expense_date"])
+        key = d.strftime("%Y-%m") if by_month else d.isoformat()
+        sums[key] = sums.get(key, 0.0) + e["amount"]
+
+    max_total = max(sums.values())
+    fmt_in, fmt_out = ("%Y-%m", "%b %Y") if by_month else ("%Y-%m-%d", "%b %d")
+    points = [
+        {
+            "label": datetime.strptime(key, fmt_in).strftime(fmt_out),
+            "amount": sums[key],
+            "pct": round(sums[key] / max_total * 100),
+        }
+        for key in sorted(sums)
+    ]
+    return points, ("month" if by_month else "day")
 
 
 # ------------------------------------------------------------------ #
@@ -122,7 +182,15 @@ def expenses_list():
         (session["user_id"],),
     ).fetchall()
     conn.close()
-    return render_template("expenses.html", expenses=expenses, categories=CATEGORIES)
+
+    category_totals = build_category_totals(expenses) if expenses else []
+    time_totals, time_bucket_mode = build_time_totals(expenses) if expenses else ([], "day")
+
+    return render_template(
+        "expenses.html", expenses=expenses, categories=CATEGORIES,
+        category_totals=category_totals, time_totals=time_totals,
+        time_bucket_mode=time_bucket_mode,
+    )
 
 
 @app.route("/expenses/add", methods=["GET", "POST"])
