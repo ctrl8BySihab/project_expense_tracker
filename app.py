@@ -102,6 +102,9 @@ def landing():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    if "user_id" in session:
+        return redirect(url_for("expenses_list"))
+
     if request.method == "GET":
         return render_template("register.html")
 
@@ -137,6 +140,9 @@ def register():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    if "user_id" in session:
+        return redirect(url_for("expenses_list"))
+
     if request.method == "GET":
         return render_template("login.html")
 
