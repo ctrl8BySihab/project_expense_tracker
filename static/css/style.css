@@ -498,6 +498,27 @@ a { color: inherit; text-decoration: none; }
 
 .form-input::placeholder { color: var(--ink-faint); }
 
+.password-field { position: relative; }
+
+.password-field .form-input { padding-right: 3.5rem; }
+
+.password-toggle {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--ink-muted);
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0.25rem 0.4rem;
+}
+
+.password-toggle:hover { color: var(--accent); }
+
 .btn-submit {
     width: 100%;
     padding: 0.7rem;
