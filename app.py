@@ -26,6 +26,7 @@ CATEGORY_COLORS = {
 }
 TOP_CATEGORY_LIMIT = 6
 DAY_BUCKET_THRESHOLD_DAYS = 45
+TOP_TIME_BUCKET_LIMIT = 10
 
 
 def login_required(view):
@@ -78,6 +79,11 @@ def build_time_totals(expenses):
         key = d.strftime("%Y-%m") if by_month else d.isoformat()
         sums[key] = sums.get(key, 0.0) + e["amount"]
 
+    truncated = len(sums) > TOP_TIME_BUCKET_LIMIT
+    if truncated:
+        top_keys = sorted(sums, key=lambda k: (-sums[k], k))[:TOP_TIME_BUCKET_LIMIT]
+        sums = {k: sums[k] for k in top_keys}
+
     max_total = max(sums.values())
     fmt_in, fmt_out = ("%Y-%m", "%b %Y") if by_month else ("%Y-%m-%d", "%b %d")
     points = [
@@ -88,7 +94,7 @@ def build_time_totals(expenses):
         }
         for key in sorted(sums)
     ]
-    return points, ("month" if by_month else "day")
+    return points, ("month" if by_month else "day"), truncated
 
 
 # ------------------------------------------------------------------ #
@@ -187,15 +193,23 @@ def expenses_list():
         "SELECT * FROM expenses WHERE user_id = ? ORDER BY expense_date DESC, id DESC",
         (session["user_id"],),
     ).fetchall()
+    user = conn.execute(
+        "SELECT username, email, created_at FROM users WHERE id = ?",
+        (session["user_id"],),
+    ).fetchone()
     conn.close()
 
     category_totals = build_category_totals(expenses) if expenses else []
-    time_totals, time_bucket_mode = build_time_totals(expenses) if expenses else ([], "day")
+    time_totals, time_bucket_mode, time_truncated = (
+        build_time_totals(expenses) if expenses else ([], "day", False)
+    )
+    highlight_id = request.args.get("highlight", type=int)
 
     return render_template(
-        "expenses.html", expenses=expenses, categories=CATEGORIES,
+        "expenses.html", expenses=expenses, categories=CATEGORIES, user=user,
         category_totals=category_totals, time_totals=time_totals,
-        time_bucket_mode=time_bucket_mode,
+        time_bucket_mode=time_bucket_mode, time_truncated=time_truncated,
+        highlight_id=highlight_id,
     )
 
 
@@ -231,14 +245,15 @@ def add_expense():
         )
 
     conn = get_db()
-    conn.execute(
+    cur = conn.execute(
         "INSERT INTO expenses (user_id, amount, category, description, expense_date) "
         "VALUES (?, ?, ?, ?, ?)",
         (session["user_id"], amount, category, description, expense_date),
     )
     conn.commit()
+    new_id = cur.lastrowid
     conn.close()
-    return redirect(url_for("expenses_list"))
+    return redirect(url_for("expenses_list", highlight=new_id))
 
 
 @app.route("/expenses/<int:id>/edit", methods=["GET", "POST"])
@@ -297,7 +312,7 @@ def edit_expense(id):
     )
     conn.commit()
     conn.close()
-    return redirect(url_for("expenses_list"))
+    return redirect(url_for("expenses_list", highlight=id))
 
 
 @app.route("/expenses/<int:id>/delete", methods=["POST"])

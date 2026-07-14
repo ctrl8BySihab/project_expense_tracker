@@ -20,6 +20,21 @@
         {% endif %}
 
         {% if expenses %}
+        <div class="summary-strip reveal-on-scroll">
+            <div class="summary-tile summary-tile-primary">
+                <span class="summary-label">Total spent</span>
+                <span class="summary-value" data-count-to="{{ '%.2f'|format(expenses|sum(attribute='amount')) }}">৳0.00</span>
+            </div>
+            <div class="summary-tile">
+                <span class="summary-label">Expenses logged</span>
+                <span class="summary-value">{{ expenses|length }}</span>
+            </div>
+            <div class="summary-tile">
+                <span class="summary-label">Top category</span>
+                <span class="summary-value summary-value-sm">{{ category_totals[0].label }}</span>
+            </div>
+        </div>
+
         <div class="insights-grid">
 
             <div class="insight-card reveal-on-scroll">
@@ -41,7 +56,9 @@
 
             <div class="insight-card reveal-on-scroll">
                 <h2 class="insight-title">Spending Over Time</h2>
-                <p class="insight-subtitle">{{ "By month" if time_bucket_mode == "month" else "By day" }}</p>
+                <p class="insight-subtitle">
+                    {{ "By month" if time_bucket_mode == "month" else "By day" }}{{ " · Top 10" if time_truncated else "" }}
+                </p>
                 <div class="trend-chart">
                     {% for point in time_totals %}
                     <div class="trend-chart-col">
@@ -70,14 +87,15 @@
                 </thead>
                 <tbody>
                     {% for expense in expenses %}
-                    <tr>
+                    <tr class="expense-row-enter{{ ' expense-row-flash' if highlight_id and expense.id == highlight_id else '' }}"
+                        style="animation-delay: {{ [loop.index0, 10]|min * 0.03 }}s">
                         <td>{{ expense.expense_date }}</td>
                         <td><span class="category-pill">{{ expense.category }}</span></td>
                         <td>{{ expense.description or "—" }}</td>
                         <td class="expense-amount">৳{{ "%.2f"|format(expense.amount) }}</td>
                         <td class="expense-actions">
                             <a href="{{ url_for('edit_expense', id=expense.id) }}">Edit</a>
-                            <form method="POST" action="{{ url_for('delete_expense', id=expense.id) }}">
+                            <form method="POST" action="{{ url_for('delete_expense', id=expense.id) }}" class="expense-delete-form">
                                 <button type="submit" class="btn-link-danger">Delete</button>
                             </form>
                         </td>
@@ -96,13 +114,39 @@
     </div>
 </section>
 
+{% if user %}
+<button type="button" class="profile-tab" id="profileTab" aria-label="Open profile" aria-expanded="false" aria-controls="profileDrawer">
+    <span>{{ user.username[0]|upper }}</span>
+</button>
+
+<div class="profile-drawer-overlay" id="profileDrawerOverlay"></div>
+
+<aside class="profile-drawer" id="profileDrawer" aria-hidden="true">
+    <div class="profile-drawer-header">
+        <button type="button" class="profile-drawer-close" id="profileDrawerClose" aria-label="Close profile">&times;</button>
+    </div>
+    <div class="profile-drawer-body">
+        <span class="profile-drawer-avatar">{{ user.username[0]|upper }}</span>
+        <h2 class="profile-drawer-name">{{ user.username }}</h2>
+        <p class="profile-drawer-email">{{ user.email }}</p>
+        <div class="profile-drawer-meta">
+            <span>Member since</span>
+            <span>{{ user.created_at }}</span>
+        </div>
+        <a href="{{ url_for('logout') }}" class="profile-drawer-logout">Log out</a>
+    </div>
+</aside>
+{% endif %}
+
 {% endblock %}
 
 {% block scripts %}
 <script>
     (function () {
+        var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        // Insight bar charts — animate to their data-driven target on scroll into view.
         var bars = document.querySelectorAll('.category-chart-bar, .trend-chart-bar');
-        if (!bars.length) return;
 
         function applyTarget(el) {
             if (el.classList.contains('category-chart-bar')) {
@@ -112,21 +156,84 @@
             }
         }
 
-        if (!('IntersectionObserver' in window)) {
-            bars.forEach(applyTarget);
-            return;
+        if (bars.length) {
+            if (!('IntersectionObserver' in window)) {
+                bars.forEach(applyTarget);
+            } else {
+                var barObserver = new IntersectionObserver(function (entries) {
+                    entries.forEach(function (entry, i) {
+                        if (entry.isIntersecting) {
+                            setTimeout(function () { applyTarget(entry.target); }, i * 60);
+                            barObserver.unobserve(entry.target);
+                        }
+                    });
+                }, { threshold: 0.15 });
+                bars.forEach(function (el) { barObserver.observe(el); });
+            }
         }
 
-        var observer = new IntersectionObserver(function (entries) {
-            entries.forEach(function (entry, i) {
-                if (entry.isIntersecting) {
-                    setTimeout(function () { applyTarget(entry.target); }, i * 60);
-                    observer.unobserve(entry.target);
-                }
-            });
-        }, { threshold: 0.15 });
+        // Total spent — count up from zero on load.
+        var totalEl = document.querySelector('[data-count-to]');
+        if (totalEl) {
+            var target = parseFloat(totalEl.dataset.countTo) || 0;
+            if (reduceMotion) {
+                totalEl.textContent = '৳' + target.toFixed(2);
+            } else {
+                var start = null;
+                var duration = 700;
+                var tick = function (ts) {
+                    if (!start) start = ts;
+                    var progress = Math.min((ts - start) / duration, 1);
+                    var eased = 1 - Math.pow(1 - progress, 3);
+                    totalEl.textContent = '৳' + (target * eased).toFixed(2);
+                    if (progress < 1) requestAnimationFrame(tick);
+                };
+                requestAnimationFrame(tick);
+            }
+        }
 
-        bars.forEach(function (el) { observer.observe(el); });
+        // Delete — fade the row out before the existing form submit fires.
+        document.querySelectorAll('.expense-delete-form').forEach(function (form) {
+            form.addEventListener('submit', function (e) {
+                if (form.dataset.confirmed || reduceMotion) return;
+                e.preventDefault();
+                var row = form.closest('tr');
+                row.classList.add('is-removing');
+                setTimeout(function () {
+                    form.dataset.confirmed = '1';
+                    form.submit();
+                }, 200);
+            });
+        });
+
+        // Profile drawer
+        var tab = document.getElementById('profileTab');
+        var drawer = document.getElementById('profileDrawer');
+        var overlay = document.getElementById('profileDrawerOverlay');
+        var closeBtn = document.getElementById('profileDrawerClose');
+
+        if (tab && drawer && overlay && closeBtn) {
+            var openDrawer = function () {
+                drawer.classList.add('is-open');
+                overlay.classList.add('is-open');
+                tab.classList.add('is-hidden');
+                drawer.setAttribute('aria-hidden', 'false');
+                tab.setAttribute('aria-expanded', 'true');
+            };
+            var closeDrawer = function () {
+                drawer.classList.remove('is-open');
+                overlay.classList.remove('is-open');
+                tab.classList.remove('is-hidden');
+                drawer.setAttribute('aria-hidden', 'true');
+                tab.setAttribute('aria-expanded', 'false');
+            };
+            tab.addEventListener('click', openDrawer);
+            closeBtn.addEventListener('click', closeDrawer);
+            overlay.addEventListener('click', closeDrawer);
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') closeDrawer();
+            });
+        }
     })();
 </script>
 {% endblock %}
