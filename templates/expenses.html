@@ -90,7 +90,8 @@
                     <tr class="expense-row-enter{{ ' expense-row-flash' if highlight_id and expense.id == highlight_id else '' }}"
                         style="animation-delay: {{ [loop.index0, 10]|min * 0.03 }}s">
                         <td>{{ expense.expense_date }}</td>
-                        <td><span class="category-pill">{{ expense.category }}</span></td>
+                        {% set cat_color = category_colors.get(expense.category, category_colors["Other"]) %}
+                        <td><span class="category-pill" style="background: {{ cat_color }}1f; color: {{ cat_color }};">{{ expense.category }}</span></td>
                         <td>{{ expense.description or "—" }}</td>
                         <td class="expense-amount">৳{{ "%.2f"|format(expense.amount) }}</td>
                         <td class="expense-actions">

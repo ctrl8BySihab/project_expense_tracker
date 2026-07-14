@@ -209,7 +209,7 @@ def expenses_list():
         "expenses.html", expenses=expenses, categories=CATEGORIES, user=user,
         category_totals=category_totals, time_totals=time_totals,
         time_bucket_mode=time_bucket_mode, time_truncated=time_truncated,
-        highlight_id=highlight_id,
+        highlight_id=highlight_id, category_colors=CATEGORY_COLORS,
     )
 
 
